@@ -1,0 +1,32 @@
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Bot runtime state & logs
+state.json
+bot.log
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Secrets / local config overrides
+.env
+.env.local
+
+# Vercel
+.vercel/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Claude Code
+.claude/
+
+# Transcript files
+*.docx
+transcript_unpacked/

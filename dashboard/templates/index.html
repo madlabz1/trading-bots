@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Trading Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { dark: '#0f1117', card: '#1a1d27', border: '#2a2d3a' } } }
+    }
+  </script>
+  <style>
+    body { background:#0f1117; color:#e2e8f0; font-family:'Segoe UI',sans-serif; }
+    .card { background:#1a1d27; border:1px solid #2a2d3a; border-radius:12px; }
+    .badge-green  { background:#14532d; color:#4ade80; }
+    .badge-red    { background:#450a0a; color:#f87171; }
+    .badge-yellow { background:#422006; color:#fbbf24; }
+    .badge-blue   { background:#172554; color:#60a5fa; }
+    .badge-gray   { background:#1e293b; color:#94a3b8; }
+    .log-line { font-family: monospace; font-size: 11px; color: #64748b; border-bottom: 1px solid #1e293b; padding: 3px 0; }
+    .log-line.info  { color: #93c5fd; }
+    .log-line.warn  { color: #fbbf24; }
+    .log-line.error { color: #f87171; }
+    .stage-pill { display:inline-block; padding:4px 14px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:0.05em; }
+    .pl-pos { color: #4ade80; }
+    .pl-neg { color: #f87171; }
+    .spin { animation: spin 1s linear infinite; display:inline-block; }
+    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  </style>
+</head>
+<body class="min-h-screen p-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-white">⚡ Trading Dashboard</h1>
+      <p class="text-slate-400 text-sm mt-1">Alpaca Paper Trading · Auto-refreshes every 30s</p>
+    </div>
+    <div class="text-right">
+      <div id="timestamp" class="text-slate-400 text-sm"></div>
+      <div id="refresh-indicator" class="text-slate-500 text-xs mt-1">Last updated: —</div>
+    </div>
+  </div>
+
+  <!-- Account Summary Bar -->
+  <div class="card p-5 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div>
+      <div class="text-slate-400 text-xs uppercase tracking-wider mb-1">Portfolio Value</div>
+      <div id="portfolio-value" class="text-white text-2xl font-bold">—</div>
+    </div>
+    <div>
+      <div class="text-slate-400 text-xs uppercase tracking-wider mb-1">Today's P&amp;L</div>
+      <div id="daily-pl" class="text-2xl font-bold">—</div>
+    </div>
+    <div>
+      <div class="text-slate-400 text-xs uppercase tracking-wider mb-1">Buying Power</div>
+      <div id="buying-power" class="text-white text-2xl font-bold">—</div>
+    </div>
+    <div>
+      <div class="text-slate-400 text-xs uppercase tracking-wider mb-1">Open Positions</div>
+      <div id="position-count" class="text-white text-2xl font-bold">—</div>
+    </div>
+  </div>
+
+  <!-- Bot Cards -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+
+    <!-- Bot 1 -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-white font-semibold">Bot 1 — Trailing Stop</div>
+          <div class="text-slate-400 text-sm">AAPL</div>
+        </div>
+        <span id="b1-status" class="stage-pill badge-gray">—</span>
+      </div>
+      <div class="space-y-2 mb-4">
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Status</span>
+          <span id="b1-stage" class="text-white font-medium">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Entry Price</span>
+          <span id="b1-entry" class="text-white">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Stop-Loss Floor</span>
+          <span id="b1-floor" class="text-yellow-400">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Shares Held</span>
+          <span id="b1-shares" class="text-white">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Unrealized P&amp;L</span>
+          <span id="b1-pl" class="font-semibold">—</span>
+        </div>
+      </div>
+      <div class="border-t border-slate-700 pt-3">
+        <div class="text-slate-500 text-xs mb-2 uppercase tracking-wider">Recent Activity</div>
+        <div id="b1-log" class="space-y-0.5 max-h-28 overflow-y-auto"></div>
+      </div>
+    </div>
+
+    <!-- Bot 2 -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-white font-semibold">Bot 2 — Copy Trading</div>
+          <div class="text-slate-400 text-sm" id="b2-politician">Loading...</div>
+        </div>
+        <span id="b2-status" class="stage-pill badge-gray">—</span>
+      </div>
+      <div class="space-y-2 mb-4">
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Copying</span>
+          <span id="b2-pol-inline" class="text-white font-medium truncate max-w-32">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Trades Copied</span>
+          <span id="b2-trades" class="text-white">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Last Run</span>
+          <span id="b2-lastrun" class="text-white text-xs">—</span>
+        </div>
+      </div>
+      <div class="border-t border-slate-700 pt-3">
+        <div class="text-slate-500 text-xs mb-2 uppercase tracking-wider">Recent Activity</div>
+        <div id="b2-log" class="space-y-0.5 max-h-28 overflow-y-auto"></div>
+      </div>
+    </div>
+
+    <!-- Bot 3 -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-white font-semibold">Bot 3 — Wheel Strategy</div>
+          <div class="text-slate-400 text-sm">NVDA</div>
+        </div>
+        <span id="b3-status" class="stage-pill badge-gray">—</span>
+      </div>
+      <div class="space-y-2 mb-4">
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Stage</span>
+          <span id="b3-stage" class="text-white font-medium">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Active Contract</span>
+          <span id="b3-contract" class="text-white text-xs">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Cost Basis</span>
+          <span id="b3-basis" class="text-white">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Premium (current)</span>
+          <span id="b3-premium" class="text-green-400 font-semibold">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Total Premiums</span>
+          <span id="b3-total" class="text-green-400 font-semibold">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-400">Cycles Completed</span>
+          <span id="b3-cycles" class="text-white">—</span>
+        </div>
+      </div>
+      <div class="border-t border-slate-700 pt-3">
+        <div class="text-slate-500 text-xs mb-2 uppercase tracking-wider">Recent Activity</div>
+        <div id="b3-log" class="space-y-0.5 max-h-28 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Positions & Orders -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+    <!-- Open Positions -->
+    <div class="card p-5">
+      <div class="text-white font-semibold mb-4">Open Positions</div>
+      <div id="positions-table">
+        <div class="text-slate-500 text-sm">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="card p-5">
+      <div class="text-white font-semibold mb-4">Recent Orders</div>
+      <div id="orders-table">
+        <div class="text-slate-500 text-sm">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fmt  = v => v == null ? '—' : '$' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const plCls = v => parseFloat(v) >= 0 ? 'pl-pos' : 'pl-neg';
+    const plFmt = v => (parseFloat(v) >= 0 ? '+' : '') + fmt(v);
+
+    function stageBadge(stage) {
+      const map = {
+        'watching':     ['WATCHING',      'badge-blue'],
+        'holding':      ['HOLDING',       'badge-green'],
+        'exited':       ['EXITED',        'badge-gray'],
+        'IDLE':         ['IDLE',          'badge-gray'],
+        'PUT_OPEN':     ['PUT OPEN',      'badge-yellow'],
+        'SHARES_HELD':  ['SHARES HELD',   'badge-blue'],
+        'CALL_OPEN':    ['CALL OPEN',     'badge-green'],
+      };
+      return map[stage] || [stage || '—', 'badge-gray'];
+    }
+
+    function renderLog(lines, elId) {
+      const el = document.getElementById(elId);
+      el.innerHTML = lines.map(line => {
+        const cls = line.includes('[WARNING]') ? 'warn' : line.includes('[ERROR]') ? 'error' : 'info';
+        // Strip timestamp for brevity
+        const text = line.replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+ \[.*?\] /, '').trim();
+        return `<div class="log-line ${cls}">${text}</div>`;
+      }).join('');
+    }
+
+    function renderPositions(positions) {
+      if (!positions || positions.length === 0) {
+        document.getElementById('positions-table').innerHTML = '<div class="text-slate-500 text-sm">No open positions</div>';
+        return;
+      }
+      const rows = positions.map(p => `
+        <tr class="border-b border-slate-800">
+          <td class="py-2 text-white font-medium">${p.symbol}</td>
+          <td class="py-2 text-slate-300">${p.qty}</td>
+          <td class="py-2 text-slate-300">${fmt(p.entry_price)}</td>
+          <td class="py-2 text-slate-300">${fmt(p.current_price)}</td>
+          <td class="py-2 font-semibold ${plCls(p.unrealized_pl)}">${plFmt(p.unrealized_pl)}</td>
+          <td class="py-2 font-semibold ${plCls(p.unrealized_plpc)}">${p.unrealized_plpc > 0 ? '+' : ''}${p.unrealized_plpc}%</td>
+        </tr>`).join('');
+      document.getElementById('positions-table').innerHTML = `
+        <table class="w-full text-sm">
+          <thead><tr class="text-slate-500 text-xs uppercase">
+            <th class="text-left pb-2">Symbol</th><th class="text-left pb-2">Qty</th>
+            <th class="text-left pb-2">Entry</th><th class="text-left pb-2">Price</th>
+            <th class="text-left pb-2">P&L</th><th class="text-left pb-2">%</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    function renderOrders(orders) {
+      if (!orders || orders.length === 0) {
+        document.getElementById('orders-table').innerHTML = '<div class="text-slate-500 text-sm">No recent orders</div>';
+        return;
+      }
+      const rows = orders.map(o => {
+        const sideCls = o.side === 'buy' ? 'text-green-400' : 'text-red-400';
+        const stCls   = o.status === 'filled' ? 'badge-green' : o.status === 'canceled' ? 'badge-red' : 'badge-yellow';
+        return `<tr class="border-b border-slate-800">
+          <td class="py-2 text-white font-medium">${o.symbol}</td>
+          <td class="py-2 ${sideCls} font-semibold uppercase">${o.side}</td>
+          <td class="py-2 text-slate-300">${o.filled_qty || o.qty}</td>
+          <td class="py-2 text-slate-300">${o.filled_price ? fmt(o.filled_price) : '—'}</td>
+          <td class="py-2"><span class="stage-pill ${stCls} text-xs">${o.status}</span></td>
+          <td class="py-2 text-slate-500 text-xs">${o.submitted_at}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('orders-table').innerHTML = `
+        <table class="w-full text-sm">
+          <thead><tr class="text-slate-500 text-xs uppercase">
+            <th class="text-left pb-2">Symbol</th><th class="text-left pb-2">Side</th>
+            <th class="text-left pb-2">Qty</th><th class="text-left pb-2">Price</th>
+            <th class="text-left pb-2">Status</th><th class="text-left pb-2">Time</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    async function refresh() {
+      try {
+        const r    = await fetch('/api/data');
+        const data = await r.json();
+
+        document.getElementById('refresh-indicator').textContent = 'Updated: ' + data.timestamp;
+
+        // Account bar
+        const a = data.alpaca;
+        if (!a.error) {
+          document.getElementById('portfolio-value').textContent = fmt(a.portfolio_value);
+          const dp = document.getElementById('daily-pl');
+          dp.textContent = plFmt(a.daily_pl) + ' (' + (a.daily_pl_pct > 0 ? '+' : '') + a.daily_pl_pct + '%)';
+          dp.className   = 'text-2xl font-bold ' + plCls(a.daily_pl);
+          document.getElementById('buying-power').textContent    = fmt(a.buying_power);
+          document.getElementById('position-count').textContent  = a.positions.length;
+          renderPositions(a.positions);
+          renderOrders(a.orders);
+        }
+
+        // Bot 1
+        const b1 = data.bot1.state;
+        const [b1label, b1cls] = stageBadge(b1.status);
+        document.getElementById('b1-status').textContent  = b1label;
+        document.getElementById('b1-status').className    = 'stage-pill ' + b1cls;
+        document.getElementById('b1-stage').textContent   = b1.status || '—';
+        document.getElementById('b1-entry').textContent   = b1.entry_price ? fmt(b1.entry_price) : '—';
+        document.getElementById('b1-floor').textContent   = b1.floor      ? fmt(b1.floor)       : '—';
+        document.getElementById('b1-shares').textContent  = b1.shares_held != null ? b1.shares_held + ' shares' : '—';
+        // Get P&L from positions
+        const aaplPos = (data.alpaca.positions || []).find(p => p.symbol === 'AAPL');
+        const b1pl    = document.getElementById('b1-pl');
+        if (aaplPos) {
+          b1pl.textContent  = plFmt(aaplPos.unrealized_pl) + ' (' + (aaplPos.unrealized_plpc > 0 ? '+' : '') + aaplPos.unrealized_plpc + '%)';
+          b1pl.className    = 'font-semibold ' + plCls(aaplPos.unrealized_pl);
+        } else { b1pl.textContent = '—'; }
+        renderLog(data.bot1.log, 'b1-log');
+
+        // Bot 2
+        const b2 = data.bot2.state;
+        const pol = b2.selected_politician || 'Not selected';
+        document.getElementById('b2-politician').textContent  = pol;
+        document.getElementById('b2-pol-inline').textContent  = pol;
+        document.getElementById('b2-status').textContent      = b2.selected_politician ? 'ACTIVE' : 'IDLE';
+        document.getElementById('b2-status').className        = 'stage-pill ' + (b2.selected_politician ? 'badge-green' : 'badge-gray');
+        document.getElementById('b2-trades').textContent      = b2.copied_trade_ids ? b2.copied_trade_ids.length + ' trades' : '0 trades';
+        document.getElementById('b2-lastrun').textContent     = b2.last_run ? new Date(b2.last_run + 'Z').toLocaleString('en-GB') : '—';
+        renderLog(data.bot2.log, 'b2-log');
+
+        // Bot 3
+        const b3 = data.bot3.state;
+        const [b3label, b3cls] = stageBadge(b3.stage);
+        document.getElementById('b3-status').textContent   = b3label;
+        document.getElementById('b3-status').className     = 'stage-pill ' + b3cls;
+        document.getElementById('b3-stage').textContent    = b3.stage    || 'IDLE';
+        document.getElementById('b3-contract').textContent = b3.contract_symbol || '—';
+        document.getElementById('b3-basis').textContent    = b3.cost_basis != null ? fmt(b3.cost_basis) + '/share' : '—';
+        document.getElementById('b3-premium').textContent  = b3.premium_received ? fmt(b3.premium_received) : '—';
+        document.getElementById('b3-total').textContent    = b3.total_premiums   ? fmt(b3.total_premiums)   : '$0.00';
+        document.getElementById('b3-cycles').textContent   = b3.cycles_completed != null ? b3.cycles_completed : '0';
+        renderLog(data.bot3.log, 'b3-log');
+
+      } catch(e) {
+        document.getElementById('refresh-indicator').textContent = 'Error: ' + e.message;
+      }
+    }
+
+    // Kick off
+    refresh();
+    setInterval(refresh, 30000);
+
+    // Clock
+    setInterval(() => {
+      document.getElementById('timestamp').textContent = new Date().toLocaleTimeString('en-GB', {timeZone:'Europe/London'});
+    }, 1000);
+  </script>
+</body>
+</html>
