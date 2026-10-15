@@ -1,0 +1,4 @@
+betfairlightweight>=2.24.0
+requests>=2.31.0
+pytz>=2024.1
+flask>=3.0.0

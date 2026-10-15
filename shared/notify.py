@@ -137,3 +137,72 @@ def b3_early_close(contract: str, pl: float, total: float) -> None:
         f"Closed `{contract}`\n"
         f"Locked in: *${pl:.2f}* | Total: *${total:.2f}*"
     )
+
+
+# ── Betfair Bot 1 — Market Maker ───────────────────────────────────────────────
+
+def b_mm_orders_placed(market_id: str, back_price: float, lay_price: float, stake: float) -> None:
+    send(
+        f"📊 *Betfair Bot 1 — Orders Placed*\n"
+        f"Market: `{market_id}`\n"
+        f"Back: *{back_price}* | Lay: *{lay_price}* | Stake: *£{stake:.2f}*"
+    )
+
+def b_mm_profit(market_id: str, pl: float, total_pl: float) -> None:
+    emoji = "🟢" if pl >= 0 else "🔴"
+    send(
+        f"{emoji} *Betfair Bot 1 — Spread Collected*\n"
+        f"Market: `{market_id}`\n"
+        f"P&L: *{'+'if pl>=0 else ''}£{pl:.2f}* | Total: *£{total_pl:.2f}*"
+    )
+
+
+# ── Betfair Bot 2 — Momentum ───────────────────────────────────────────────────
+
+def b_mom_entry(market_name: str, side: str, price: float, stake: float) -> None:
+    emoji = "📈" if side == "BACK" else "📉"
+    send(
+        f"{emoji} *Betfair Bot 2 — Momentum Entry*\n"
+        f"`{market_name}`\n"
+        f"Side: *{side}* @ *{price}* | Stake: *£{stake:.2f}*"
+    )
+
+def b_mom_exit(market_name: str, pl: float, reason: str) -> None:
+    emoji = "🟢" if pl >= 0 else "🔴"
+    send(
+        f"{emoji} *Betfair Bot 2 — Position Closed*\n"
+        f"`{market_name}`\n"
+        f"P&L: *{'+'if pl>=0 else ''}£{pl:.2f}* | Reason: {reason}"
+    )
+
+
+# ── Betfair Bot 3 — Sharp Copy ─────────────────────────────────────────────────
+
+def b_sharp_copied(market_name: str, side: str, price: float, stake: float, original: float) -> None:
+    send(
+        f"🐋 *Betfair Bot 3 — Sharp Money Copied*\n"
+        f"`{market_name}`\n"
+        f"Original: £{original:.0f} | Copied: *{side}* @ *{price}* for *£{stake:.2f}*"
+    )
+
+
+# ── Betfair Bot 4 — News Trigger ───────────────────────────────────────────────
+
+def b_news_trade(headline: str, market_name: str, side: str, stake: float) -> None:
+    send(
+        f"📰 *Betfair Bot 4 — News Trade*\n"
+        f"Headline: _{headline[:80]}_\n"
+        f"Market: `{market_name}` | *{side}* £{stake:.2f}"
+    )
+
+
+# ── Betfair Bot 5 — Value Scanner ──────────────────────────────────────────────
+
+def b_value_bet(market_name: str, side: str, price: float, model_prob: float, market_prob: float, stake: float) -> None:
+    edge = round((model_prob - market_prob) * 100, 1)
+    send(
+        f"💎 *Betfair Bot 5 — Value Bet*\n"
+        f"`{market_name}`\n"
+        f"*{side}* @ *{price}* | Edge: *+{edge}%* | Stake: *£{stake:.2f}*\n"
+        f"Model: {model_prob*100:.0f}% vs Market: {market_prob*100:.0f}%"
+    )
