@@ -105,6 +105,11 @@ def load_state() -> dict:
 def save_state(state: dict) -> None:
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
+    try:
+        from shared.supabase_push import push_state as _sb
+        _sb(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, "bot5", "Value Scanner", state)
+    except Exception:
+        pass
 
 # ── Login ──────────────────────────────────────────────────────────────────────
 def get_client() -> betfairlightweight.APIClient:
@@ -288,7 +293,7 @@ def place_value_bet(
             ],
             customer_strategy_ref="MadValue",
         )
-        report = result.instruction_reports[0]
+        report = result.place_instruction_reports[0]
         if report.status != "SUCCESS":
             log.warning(f"  Value bet failed: {report.error_code}")
             return False
@@ -514,3 +519,4 @@ def run() -> None:
 # ── Entry Point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     run()
+

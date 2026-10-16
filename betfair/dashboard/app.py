@@ -1,8 +1,8 @@
 """
 Betfair Trading Dashboard
 ==========================
-Reads state.json from each of the 5 bots and serves a live HTML dashboard.
-Works locally (Flask dev server) and on Vercel (serverless).
+Reads bot state from Supabase (cloud) so it works on Vercel.
+Falls back to local state.json files when Supabase is unavailable.
 
 Local:  python dashboard/app.py  → http://localhost:5001
 Vercel: vercel deploy (from betfair/ directory)
@@ -13,10 +13,15 @@ import os
 from datetime import datetime, timezone
 from flask import Flask, render_template_string
 
+import requests as _requests
+
 app = Flask(__name__)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-BOTS_DIR = os.path.dirname(BASE_DIR)   # betfair/
+BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
+BOTS_DIR  = os.path.dirname(BASE_DIR)   # betfair/
+
+SUPABASE_URL      = os.environ.get("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
 BOTS = [
     {"id": "bot1", "name": "Market Maker",   "folder": "bot1_market_maker",  "color": "#4CAF50"},
@@ -26,7 +31,26 @@ BOTS = [
     {"id": "bot5", "name": "Value Scanner",   "folder": "bot5_value_scanner",  "color": "#F44336"},
 ]
 
-def load_bot_state(folder: str) -> dict:
+def fetch_supabase_states() -> dict:
+    """Fetch all bot rows from Supabase. Returns {bot_id: row}."""
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        return {}
+    try:
+        resp = _requests.get(
+            f"{SUPABASE_URL}/rest/v1/bot_state?select=*",
+            headers={
+                "apikey":        SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+            },
+            timeout=8,
+        )
+        resp.raise_for_status()
+        return {row["bot_id"]: row for row in resp.json()}
+    except Exception:
+        return {}
+
+def load_local_state(folder: str) -> dict:
+    """Fallback: read state.json from local filesystem."""
     path = os.path.join(BOTS_DIR, folder, "state.json")
     try:
         with open(path) as f:
@@ -51,44 +75,53 @@ def time_ago(ts_str: str | None) -> str:
         return "?"
 
 def get_dashboard_data() -> dict:
+    sb_states = fetch_supabase_states()
+
     bots_data = []
     total_pl  = 0.0
     total_pos = 0
 
     for bot in BOTS:
-        state = load_bot_state(bot["folder"])
-        pl        = state.get("total_pl", 0.0)
-        positions = state.get("positions", [])
-        last_run  = state.get("last_run")
+        if bot["id"] in sb_states:
+            row       = sb_states[bot["id"]]
+            pl        = row.get("total_pl", 0.0) or 0.0
+            positions = row.get("open_positions", []) or []
+            last_run  = row.get("last_run")
+        else:
+            # Fallback to local state.json
+            state    = load_local_state(bot["folder"])
+            pl       = state.get("total_pl", 0.0)
+            positions = state.get("positions") or state.get("open_orders", [])
+            last_run  = state.get("last_run")
 
         total_pl  += pl
         total_pos += len(positions)
 
-        # Format open positions for display
         pos_display = []
         for p in positions:
             pos_display.append({
-                "market":   p.get("market_name", "?")[:35],
-                "runner":   p.get("runner_name", p.get("back_runner", "?"))[:20],
-                "side":     p.get("side", "?"),
-                "price":    p.get("entry_price", p.get("back_price", "?")),
-                "stake":    p.get("stake", "?"),
-                "entered":  time_ago(p.get("entered_at", p.get("placed_at"))),
+                "market":  p.get("market_name", "?")[:35],
+                "runner":  p.get("runner_name", p.get("back_runner", "?"))[:20],
+                "side":    p.get("side", "?"),
+                "price":   p.get("entry_price", p.get("back_price", p.get("price", "?"))),
+                "stake":   p.get("stake", "?"),
+                "entered": time_ago(p.get("entered_at", p.get("placed_at"))),
             })
 
         bots_data.append({
             **bot,
-            "pl":         pl,
-            "positions":  pos_display,
-            "last_run":   time_ago(last_run),
-            "is_active":  last_run is not None,
+            "pl":        pl,
+            "positions": pos_display,
+            "last_run":  time_ago(last_run),
+            "is_active": last_run is not None,
         })
 
     return {
-        "bots":        bots_data,
-        "total_pl":    total_pl,
-        "total_pos":   total_pos,
-        "updated_at":  datetime.now(timezone.utc).strftime("%H:%M:%S UTC"),
+        "bots":       bots_data,
+        "total_pl":   total_pl,
+        "total_pos":  total_pos,
+        "updated_at": datetime.now(timezone.utc).strftime("%H:%M:%S UTC"),
+        "source":     "Supabase" if sb_states else "Local",
     }
 
 HTML_TEMPLATE = """
@@ -180,7 +213,7 @@ HTML_TEMPLATE = """
 
 <div class="header">
   <h1>&#9889; <span>Betfair</span> Trading Bots</h1>
-  <div class="meta">Auto-refresh every 30s &bull; {{ data.updated_at }}</div>
+  <div class="meta">Auto-refresh every 30s &bull; {{ data.updated_at }} &bull; {{ data.source }}</div>
 </div>
 
 <div class="summary">
@@ -238,7 +271,7 @@ HTML_TEMPLATE = """
 {% endfor %}
 </div>
 
-<div class="footer">madlabz trading system &bull; Betfair Exchange &bull; £200 bankroll</div>
+<div class="footer">madlabz trading system &bull; Betfair Exchange &bull; powered by Supabase</div>
 
 </body>
 </html>
@@ -251,7 +284,6 @@ def index():
 
 @app.route("/api/data")
 def api_data():
-    """JSON endpoint for programmatic access."""
     from flask import jsonify
     return jsonify(get_dashboard_data())
 

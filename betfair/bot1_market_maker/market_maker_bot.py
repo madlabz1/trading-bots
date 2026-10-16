@@ -95,6 +95,11 @@ def load_state() -> dict:
 def save_state(state: dict) -> None:
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
+    try:
+        from shared.supabase_push import push_state as _sb
+        _sb(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, "bot1", "Market Maker", state)
+    except Exception:
+        pass
 
 # ── Login ──────────────────────────────────────────────────────────────────────
 def get_client() -> betfairlightweight.APIClient:
@@ -255,8 +260,8 @@ def place_market_maker_orders(
             instructions=instructions,
             customer_strategy_ref="MadMktMaker",
         )
-        back_id = result.instruction_reports[0].bet_id if result.instruction_reports[0].status == "SUCCESS" else None
-        lay_id  = result.instruction_reports[1].bet_id if result.instruction_reports[1].status == "SUCCESS" else None
+        back_id = result.place_instruction_reports[0].bet_id if result.place_instruction_reports[0].status == "SUCCESS" else None
+        lay_id  = result.place_instruction_reports[1].bet_id if result.place_instruction_reports[1].status == "SUCCESS" else None
 
         if back_id and lay_id:
             log.info(
@@ -442,3 +447,4 @@ def run() -> None:
 # ── Entry Point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     run()
+
