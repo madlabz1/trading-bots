@@ -111,8 +111,20 @@ def save_state(state: dict) -> None:
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
     try:
-        from shared.supabase_push import push_state as _sb
-        _sb(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, "bot4", "News Trigger", state)
+        import requests as _rq
+        _rq.post(
+            f"{config.SUPABASE_URL}/rest/v1/bot_state",
+            json={"bot_id": "bot4", "bot_name": "News Trigger",
+                  "total_pl": round(float(state.get("total_pl", 0.0)), 4),
+                  "open_positions": state.get("positions") or state.get("open_orders", []),
+                  "last_run": state.get("last_run"),
+                  "updated_at": datetime.now(timezone.utc).isoformat()},
+            headers={"apikey": config.SUPABASE_ANON_KEY,
+                     "Authorization": f"Bearer {config.SUPABASE_ANON_KEY}",
+                     "Content-Type": "application/json",
+                     "Prefer": "resolution=merge-duplicates"},
+            timeout=8,
+        )
     except Exception:
         pass
 
