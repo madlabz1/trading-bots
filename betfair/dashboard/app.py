@@ -20,8 +20,8 @@ app = Flask(__name__)
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 BOTS_DIR  = os.path.dirname(BASE_DIR)   # betfair/
 
-SUPABASE_URL      = os.environ.get("SUPABASE_URL", "")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+SUPABASE_URL      = os.environ.get("SUPABASE_URL") or "https://gfmlonjjlkqpntupzqdf.supabase.co"
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmbWxvbmpqbGtxcG50dXB6cWRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxODI5NTUsImV4cCI6MjEwNzc1ODk1NX0.Cxq09E9Kz_Ese0fFaS-1GyAbKqH7ZrYFisGmn2F8CsY"
 
 BOTS = [
     {"id": "bot1", "name": "Market Maker",   "folder": "bot1_market_maker",  "color": "#4CAF50"},
@@ -286,6 +286,18 @@ def index():
 def api_data():
     from flask import jsonify
     return jsonify(get_dashboard_data())
+
+@app.route("/debug")
+def debug():
+    from flask import jsonify
+    sb = fetch_supabase_states()
+    return jsonify({
+        "supabase_url_set": bool(SUPABASE_URL),
+        "anon_key_set": bool(SUPABASE_ANON_KEY),
+        "supabase_rows": len(sb),
+        "bot_ids": list(sb.keys()),
+        "sample": {k: {"pl": v.get("total_pl"), "last_run": v.get("last_run")} for k, v in sb.items()},
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=False)
